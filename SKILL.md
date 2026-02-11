@@ -1,6 +1,7 @@
 ---
 name: codex-headless
 description: "Run OpenAI Codex in headless mode (`codex exec`) on macOS. Use when the user asks to run Codex programmatically, execute headless prompts, use `codex exec`, get structured JSON output, auto-approve commands with --full-auto or sandbox policies, pipe output, create commits via CLI, integrate Codex into scripts, cron jobs, and CI/CD workflows on macOS, or asks about Codex CLI features, flags, sandbox policies, SDK, or configuration."
+version: 0.1.0
 argument-hint: "[prompt or flags]"
 ---
 
