@@ -8,6 +8,7 @@ description: >-
   cron jobs, CI/CD workflows, structured JSON output, sandbox policies,
   or Codex CLI features, flags, SDK, and configuration on macOS.
 version: 0.1.0
+tools: Bash
 argument-hint: "[prompt or flags]"
 ---
 
@@ -81,61 +82,32 @@ python3 ~/.claude/skills/codex-headless/scripts/codex_headless.py \
 
 ## Key CLI flags for `codex exec`
 
+Most-used flags:
+
 | Flag | Short | Description |
 |------|-------|-------------|
-| `PROMPT` | | Initial instructions (positional arg or stdin) |
-| `--model` | `-m` | Model to use (e.g. `o4-mini`, `codex-mini-latest`) |
+| `--model` | `-m` | Model to use (e.g. `o4-mini`) |
 | `--sandbox` | `-s` | Sandbox policy: `read-only`, `workspace-write`, `danger-full-access` |
-| `--full-auto` | | Convenience: `-a on-request --sandbox workspace-write` |
-| `--profile` | `-p` | Configuration profile from `config.toml` |
+| `--full-auto` | | Convenience: workspace-write + auto-approve |
 | `--cd` | `-C` | Working directory for the agent |
-| `--image` | `-i` | Attach image(s) to the initial prompt |
 | `--json` | | Print events to stdout as JSONL |
-| `--output-last-message` | `-o` | Write last agent message to a file |
-| `--output-schema` | | Path to JSON Schema for structured final response |
-| `--ephemeral` | | Run without persisting session files |
-| `--skip-git-repo-check` | | Allow running outside a Git repository |
-| `--add-dir` | | Additional writable directories |
-| `--color` | | Color settings for output |
-| `--oss` | | Use an open-source provider |
-| `--local-provider` | | Local provider (`lmstudio` or `ollama`) |
-| `--dangerously-bypass-approvals-and-sandbox` / `--yolo` | | Skip all prompts and sandboxing (use with extreme caution) |
+| `-o` | | Write last agent message to a file |
+
+See [references/recipes.md](references/recipes.md#complete-cli-flags-for-codex-exec) for the complete flags table.
 
 ---
 
 ## Structured output
 
-### JSONL event stream
-
 ```bash
+# JSONL event stream
 codex exec --json "Summarize this project"
-```
 
-### Write last message to file
-
-```bash
+# Write last message to file
 codex exec -o result.txt "Explain the auth module"
-cat result.txt
-```
 
-### JSON Schema (typed output)
-
-```bash
+# JSON Schema (typed output) -- provide a schema file for structured responses
 codex exec --output-schema schema.json "Extract function names from auth.py"
-```
-
-Where `schema.json` contains:
-```json
-{
-  "type": "object",
-  "properties": {
-    "functions": {
-      "type": "array",
-      "items": { "type": "string" }
-    }
-  },
-  "required": ["functions"]
-}
 ```
 
 ---
@@ -165,22 +137,13 @@ codex exec --full-auto "Run tests and fix failures"
 
 ## Session management
 
-### Resume a session
-
 ```bash
+# Resume a session (by ID or most recent)
 codex exec resume <SESSION_ID>
-
-# Resume the most recent session
 codex exec resume --last
-
-# Resume last session with a new prompt
 codex exec resume --last "Continue working on the fix"
-```
 
-### Fork a session
-
-```bash
-# Fork creates a new independent session with the same conversation history
+# Fork: new independent session with same conversation history
 codex fork <SESSION_ID>
 codex fork --last
 ```
@@ -204,31 +167,21 @@ codex exec --local-provider ollama -m llama3 "Explain this function"
 
 ## macOS-specific integrations
 
-### Copy output to clipboard (pbcopy)
-
 ```bash
+# Copy output to clipboard
 codex exec -o /dev/stdout "Summarize this project" | pbcopy
-```
 
-### Paste clipboard as input (pbpaste)
-
-```bash
+# Paste clipboard as input
 pbpaste | codex exec "Review this code"
-```
 
-### Desktop notification on completion (osascript)
-
-```bash
-codex exec --full-auto "Run all tests and fix failures"; \
+# Desktop notification on completion
+codex exec --full-auto "Run all tests"; \
   osascript -e 'display notification "Codex task finished" with title "Codex"'
-```
 
-### Combine: run, notify, and copy result
-
-```bash
+# Combine: run, notify, and copy result
 codex exec -o result.txt "Summarize this project"; \
   cat result.txt | pbcopy; \
-  osascript -e 'display notification "Result copied to clipboard" with title "Codex"'
+  osascript -e 'display notification "Result copied" with title "Codex"'
 ```
 
 ---
@@ -254,115 +207,35 @@ tmux attach -t my-session
 
 ## Common recipes
 
-### Git commit from staged changes
+Quick examples (see [references/recipes.md](references/recipes.md#common-recipes) for the full collection):
 
 ```bash
-codex exec --full-auto "Look at my staged changes and create an appropriate commit"
-```
-
-### Code review a PR
-
-```bash
+# Code review a PR
 gh pr diff 123 | codex exec "Review this PR for bugs and security issues"
-```
 
-### Fix test failures
-
-```bash
+# Fix test failures
 codex exec --full-auto "Run the test suite and fix any failures"
-```
-
-### Explain + Plan first, then implement
-
-```bash
-# Step 1: plan (read-only)
-codex exec --sandbox read-only "Analyze the auth system and propose improvements"
-
-# Step 2: implement
-codex exec --full-auto "Implement the improvements to the auth system"
-```
-
-### Batch processing with a loop
-
-```bash
-for file in src/**/*.py; do
-  codex exec --sandbox workspace-write "Add type hints to $file"
-done
-```
-
-### Pipe build errors for diagnosis
-
-```bash
-npm run build 2>&1 | codex exec "Explain the root cause and suggest a fix"
-```
-
-### Attach images for context
-
-```bash
-codex exec -i screenshot.png "What UI issues do you see in this screenshot?"
-```
-
-### Run without git repo
-
-```bash
-codex exec --skip-git-repo-check "Analyze the files in this directory"
-```
-
-### Use with additional writable directories
-
-```bash
-codex exec --full-auto --add-dir /tmp/output "Generate reports and save to /tmp/output"
 ```
 
 ---
 
 ## TypeScript SDK (programmatic usage)
 
-For deeper integration, use the Codex TypeScript SDK:
-
-```typescript
-import { Codex } from "@openai/codex-sdk";
-
-const codex = new Codex();
-const thread = codex.startThread();
-const turn = await thread.run("Diagnose the test failure and propose a fix");
-
-console.log(turn.finalResponse);
-console.log(turn.items);
-```
+For deeper integration, use the `@openai/codex-sdk` package. See [references/recipes.md](references/recipes.md#typescript-sdk-programmatic-usage) for SDK examples.
 
 ---
 
 ## Background mode (non-blocking)
 
-Run tasks in the background — the wrapper returns immediately with PID and log path.
+Run tasks in the background -- the wrapper returns immediately with PID and log path.
 
 ```bash
-# Fire-and-forget with notification when done
 python3 ~/.claude/skills/codex-headless/scripts/codex_headless.py \
   --background --notify \
   --full-auto "Run all tests and fix failures"
-
-# Custom log directory
-python3 ~/.claude/skills/codex-headless/scripts/codex_headless.py \
-  --background --log-dir /tmp/codex-logs \
-  --sandbox workspace-write "Refactor the auth module"
 ```
 
-Output:
-```
-Background process started:
-  PID:  12345
-  Log:  ~/.claude/logs/headless/codex-20260210-143022.log
-  Tail: tail -f ~/.claude/logs/headless/codex-20260210-143022.log
-  Stop: kill 12345
-```
-
-| Flag | Description |
-|------|-------------|
-| `--background` / `--bg` | Run in background, return immediately |
-| `--log-dir <path>` | Log directory (default: `~/.claude/logs/headless`) |
-| `--notify` | macOS notification when background task finishes |
+Flags: `--background` / `--bg` (run in background), `--log-dir <path>` (log directory), `--notify` (macOS notification on completion).
 
 ---
 
@@ -383,25 +256,10 @@ Background process started:
 
 ## Looking up Codex documentation
 
-When encountering unfamiliar flags, features, sandbox policies, SDK usage, or any Codex topic not covered above, use the **smart-search** skill to query documentation. Smart-search automatically routes queries across DeepWiki, Context7, and Perplexity for the best answer.
+For unfamiliar flags, SDK usage, or advanced configuration, use the **smart-search** skill to query documentation. See [references/recipes.md](references/recipes.md#looking-up-codex-documentation) for example queries and guidance on when to search.
 
-### Example queries
+---
 
-```
-"What CLI flags are available for codex exec headless mode?"
-"How does the sandbox system work? What are all sandbox policies and their permissions?"
-"How to configure Codex with config.toml profiles?"
-"How does session management work? How to resume and fork sessions?"
-"How to use the Codex TypeScript SDK programmatically?"
-"How to use Codex with local providers (ollama, lmstudio)?"
-"How does --output-schema work for structured responses?"
-"How to use Codex with open-source models via --oss flag?"
-```
+## Additional Resources
 
-### When to look up documentation
-
-- A flag or option is not documented in this skill
-- The user asks about SDK integration, custom providers, or advanced configuration
-- Troubleshooting unexpected behavior or error messages
-- Verifying the latest syntax or available options
-- Any Codex feature beyond basic headless mode usage
+- [references/recipes.md](references/recipes.md) -- Complete CLI flags table, common usage recipes, TypeScript SDK examples, and documentation lookup guidance
